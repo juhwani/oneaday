@@ -1,0 +1,2 @@
+build html rq
+Implement postgreSQL to store shit
