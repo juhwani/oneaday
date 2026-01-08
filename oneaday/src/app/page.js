@@ -100,7 +100,7 @@ export default function Home() {
               fontWeight: "200"
             }}
           >
-            Release
+            Submit
           </button>
         </div>
       </form>
