@@ -1,31 +1,32 @@
-"use server"; // This is the most important line!
-import { createClient } from "@/utils/supabase"; // The client we made earlier
-import { revalidatePath } from "next/cache";
+"use server";
+import { createClient } from "@/utils/supabase/server";
 
 export async function releaseThought(formData) {
-  // 1. Initialize the Supabase client
-  const supabase = createClient();
+  const supabase = await createClient();
 
-  // 2. Extract the data from the form
+  // 1. Get the current logged-in user
+  const { data: { user }, error: userError } = await supabase.auth.getUser();
+
+  if (userError || !user) {
+    return { success: false, error: "You must be logged in to release a thought." };
+  }
+
   const content = formData.get("entry");
 
-  // 3. Simple validation (The Security Guard check)
-  if (!content || content.length > 280) {
-    return { error: "Invalid content length" };
-  }
-
-  // 4. Send to Supabase
+  // 2. Insert with the user_id attached
   const { error } = await supabase
     .from("posts")
-    .insert([{ content: content }]);
+    .insert([
+      { 
+        content: content, 
+        user_id: user.id // This links the post to the identity
+      }
+    ]);
 
   if (error) {
-    console.error("Supabase Error:", error.message);
-    return { error: "Could not save thought" };
+    console.error(error);
+    return { success: false };
   }
 
-  // 5. Tell Next.js to refresh the page cache
-  revalidatePath("/");
-  
   return { success: true };
 }
