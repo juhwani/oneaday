@@ -6,17 +6,10 @@ export default async function EntryPage({ params }) {
   const { userid, date } = await params;
   const supabase = createClient();
 
-// 1. Create the 'Time Window'
   const startOfDay = `${date}T00:00:00.000Z`;
   const endOfDay = `${date}T23:59:59.999Z`;
 
-  console.log("--- DEBUG START ---");
-  console.log("Looking for Date:", date);
-  console.log("Start Window:", startOfDay);
-  console.log("End Window:", endOfDay);
-
-  // 2. The Narrow Query (The one we want to work)
-  const { data: post, error } = await supabase
+  const { data: post } = await supabase
     .from("posts")
     .select("*")
     .gte("created_at", startOfDay)
@@ -25,24 +18,17 @@ export default async function EntryPage({ params }) {
     .limit(1)
     .maybeSingle();
 
-  // 3. The WIDE Query (For debugging only)
-  // This checks if the table even has data
-  const { data: allPosts } = await supabase.from("posts").select("created_at").limit(3);
+  if (!post) return notFound();
+
+  // 1. Mood Configuration
+  const MOOD_COLORS = [
+    "#4A00E0", "#005BEA", "#00B4DB", "#00F2FE", "#4facfe", 
+    "#00f260", "#f7ff00", "#ff9a9e", "#ff0844", "#000000" // Changed 10 to Black for White theme visibility
+  ];
   
-  console.log("Does the table have ANY posts?:", allPosts);
-  console.log("Specific Post Found?:", post);
-  if (error) console.log("Query Error:", error.message);
-  console.log("--- DEBUG END ---");
+  const moodDescriptions = ["Worst", "Awful", "Bad", "Unwell", "Neutral", "Decent", "Good", "Happy", "Excellent", "Perfect"];
+  const themeColor = MOOD_COLORS[post.mood - 1] || "#000000";
 
-  // 3. Diagnostic Logging (Check your Terminal, not the Browser)
-  if (error) {
-    console.error("Supabase Error:", error.message);
-  }
-
-  // 4. Handle Missing Data
-  if (!post) {
-    return notFound();
-  }
   return (
     <main style={{
       height: "100vh",
@@ -53,67 +39,91 @@ export default async function EntryPage({ params }) {
       justifyContent: "center",
       alignItems: "center",
       padding: "20px",
-      textAlign: "center"
+      textAlign: "center",
+      position: "relative",
+      overflow: "hidden"
     }}>
       <style>{`
-        .nav-circle {
-          transition: all 0.3s ease;
-          cursor: pointer;
+        .nav-circle-link {
+          transition: all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
           text-decoration: none;
           display: flex;
           flex-direction: column;
           align-items: center;
-          gap: 10px;
+          gap: 15px;
         }
-        .nav-circle:hover {
+        .nav-circle-link:hover {
           transform: translateY(-5px);
         }
-        .nav-text {
-          opacity: 0;
-          transition: opacity 0.3s ease;
-          font-size: 10px;
-          letter-spacing: 2px;
-          text-transform: uppercase;
-          color: black;
-          font-weight: 600;
-        }
-        .nav-circle:hover .nav-text {
-          opacity: 1;
+        .nav-circle-link:hover .circle-fill {
+          box-shadow: 0 10px 20px -5px rgba(0,0,0,0.2);
         }
       `}</style>
 
-      <div style={{ maxWidth: "600px" }}>
+      {/* 2. SOFT COLOR ACCENT (Top Gradient) */}
+      <div style={{
+        position: "absolute",
+        top: 0,
+        left: 0,
+        width: "100%",
+        height: "5px",
+        backgroundColor: themeColor,
+        opacity: 0.6
+      }} />
+
+      <div style={{ maxWidth: "600px", position: "relative" }}>
+        {/* Date & Mood Descriptor */}
         <p style={{ 
-          fontSize: "12px", 
-          letterSpacing: "3px", 
+          fontSize: "11px", 
+          letterSpacing: "4px", 
           textTransform: "uppercase", 
           color: "#A0A0A0",
-          marginBottom: "40px" 
+          marginBottom: "10px" 
         }}>
           — {date.replaceAll('-', ' . ')} —
+        </p>
+        
+        <p style={{ 
+          fontSize: "10px", 
+          letterSpacing: "2px", 
+          color: themeColor, // The mood color is showcased here
+          fontWeight: "600",
+          textTransform: "uppercase",
+          marginBottom: "40px"
+        }}>
+          {moodDescriptions[post.mood - 1]}
         </p>
         
         <h2 style={{ 
           fontWeight: "300", 
           lineHeight: "1.8", 
-          fontSize: "22px",
-          color: "#1A1A1A"
+          fontSize: "24px",
+          color: "#1A1A1A",
+          marginBottom: "60px"
         }}>
           {post.content}
         </h2>
 
-        {/* The Interactive Black Circle */}
-        <div style={{ marginTop: "60px" }}>
-          <Link href={`/${userid}`} className="nav-circle">
-            <div style={{
-              width: "40px",
-              height: "40px",
-              backgroundColor: "black",
-              borderRadius: "50%"
-            }} />
-            <span className="nav-text">Back to Profile</span>
-          </Link>
-        </div>
+        {/* 3. COLORED NAVIGATION CIRCLE */}
+        <Link href={`/${userid}`} className="nav-circle-link">
+          <div className="circle-fill" style={{
+            width: "40px",
+            height: "40px",
+            backgroundColor: themeColor, // Circle is now the mood color
+            borderRadius: "50%",
+            transition: "all 0.3s ease"
+          }} />
+          <span style={{
+            fontSize: "10px",
+            letterSpacing: "3px",
+            textTransform: "uppercase",
+            color: "black",
+            fontWeight: "400",
+            opacity: 0.4
+          }}>
+            Return
+          </span>
+        </Link>
       </div>
     </main>
   );

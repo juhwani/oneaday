@@ -1,5 +1,6 @@
 "use server";
 import { createClient } from "@/utils/supabase/server";
+import { revalidatePath } from "next/cache";
 
 export async function releaseThought(formData) {
   const supabase = await createClient();
@@ -11,22 +12,31 @@ export async function releaseThought(formData) {
     return { success: false, error: "You must be logged in to release a thought." };
   }
 
+  // 2. Extract BOTH content and mood
   const content = formData.get("entry");
+  const moodValue = formData.get("mood"); // Grabbing the mood you appended in HomeClient
+  
+  // Convert to integer so Supabase accepts it as an INT
+  const mood = parseInt(moodValue, 10);
 
-  // 2. Insert with the user_id attached
+  // 3. Insert with the mood explicitly defined
   const { error } = await supabase
     .from("posts")
     .insert([
       { 
         content: content, 
-        user_id: user.id // This links the post to the identity
+        mood: mood,      // <--- THIS was the missing piece
+        user_id: user.id 
       }
     ]);
 
   if (error) {
-    console.error(error);
+    console.error("Supabase Insert Error:", error.message);
     return { success: false };
   }
 
+  // 4. Clear the cache so the profile grid updates immediately
+  revalidatePath("/"); 
+  
   return { success: true };
 }

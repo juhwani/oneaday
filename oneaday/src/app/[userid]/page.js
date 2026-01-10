@@ -3,6 +3,16 @@ import Link from "next/link";
 import SignOutButton from "./SignOutButton";
 
 export default async function ProfilePage({ params }) {
+    const moodDescriptions = [
+  "Worst", "Awful", "Bad", "Unwell", "Neutral", 
+  "Decent", "Good", "Happy", "Excellent", "Perfect"
+];
+
+// Helper to safely get the label based on the 1-10 index
+const getMoodLabel = (val) => {
+  if (!val || val < 1 || val > 10) return "";
+  return moodDescriptions[val - 1];
+};
   const { userid } = await params;
   
   // console.time("Profile-Fetch-Time");
@@ -67,11 +77,11 @@ return (
 }
 
   // 2. Fetch posts using the ID we found
-  const { data: posts } = await supabase
-    .from("posts")
-    .select("created_at")
-    .eq("user_id", profile.id)
-    .order("created_at", { ascending: true });
+const { data: posts } = await supabase
+  .from("posts")
+  .select("created_at, mood") // Only one .select call needed
+  .eq("user_id", profile.id)
+  .order("created_at", { ascending: true });
 
   // console.timeEnd("Profile-Fetch-Time");
   const activeDays = posts?.map(p => p.created_at.split('T')[0]) || [];
@@ -105,6 +115,16 @@ return (
           outline: 1px solid white;
           box-shadow: 0 0 10px rgba(0,0,0,0.1);
         }
+          /* Today's Pulse Animation */
+  @keyframes todayPulse {
+    0% { transform: scale(1); box-shadow: 0 0 0px rgba(0,0,0,0); }
+    50% { transform: scale(1.2); box-shadow: 0 0 10px rgba(0,0,0,0.15); }
+    100% { transform: scale(1); box-shadow: 0 0 0px rgba(0,0,0,0); }
+  }
+  .is-today {
+    animation: todayPulse 2s infinite ease-in-out;
+    z-index: 5;
+  }
       `}</style>
 
       <div style={{ display: "flex", flexDirection: "column", alignItems: "center", width: "100%" }}>
@@ -156,49 +176,58 @@ return (
                 </span>
                 
                 <div style={{ display: "grid", gridTemplateRows: "repeat(7, 10px)", gridAutoFlow: "column", gap: "3px" }}>
-                    {month.days.map(date => {
-                        const isActive = activeDays.includes(date);
-                        
-                        // 1. Check if this specific square is "Today"
-                        const isToday = date === new Date().toISOString().split('T')[0];
-                        
-                        const squareStyle = {
-                            width: "10px",  
-                            height: "10px",
-                            backgroundColor: isActive ? "black" : "#f0f0f0",
-                            borderRadius: "1.5px",
-                            display: "block",
-                            position: "relative",
-                            // 2. Add a border if it's today
-                            border: isToday ? "1px solid #000" : "none",
-                            boxSizing: "border-box" // Ensures the border doesn't make the square bigger
-                        };
+{month.days.map(date => {
+  const MOOD_COLORS = [
+    "#4A00E0", "#005BEA", "#00B4DB", "#00F2FE", "#4facfe", 
+    "#00f260", "#f7ff00", "#ff9a9e", "#ff0844", 
+    "#1A1A1A" // Changed Mood 10 to Near-Black for visibility on white theme
+  ];
 
-                        if (isActive) {
-                            return (
-                            <Link
-                                key={date}
-                                href={`/${userid}/${date}`}
-                                className="square"
-                                style={{ ...squareStyle, cursor: "pointer" }}
-                                title={`Today: View entry for ${date}`}
-                            />
-                            );
-                        }
+  const postForDate = posts?.find(p => p.created_at.split('T')[0] === date);
+  const moodValue = postForDate?.mood;
+  const isActive = !!postForDate;
+  const isToday = date === new Date().toISOString().split('T')[0];
+  
+const squareStyle = {
+      width: "10px",  
+      height: "10px",
+      backgroundColor: moodValue ? MOOD_COLORS[moodValue - 1] : (isActive ? "black" : "#f0f0f0"),
+      borderRadius: "1.5px",
+      display: "block",
+      position: "relative",
+      boxSizing: "border-box",
+      transition: "all 0.2s ease",
+      // Remove the old border: isToday ? "1px solid #000" : "none"
+  };
+  // Construct the class string
+  const className = `square ${isToday ? 'is-today' : ''}`;
 
-                        return (
-                            <div
-                            key={date}
-                            className="square"
-                            style={{ ...squareStyle, cursor: "default" }}
-                            title={isToday ? "Today: No entry yet" : `No entry for ${date}`}
-                            />
-                        );
-                        })}
+  if (isActive) {
+      return (
+      <Link
+          key={date}
+          href={`/${userid}/${date}`}
+          className={className}
+          style={{ ...squareStyle, cursor: "pointer" }}
+          title={`${date}: ${getMoodLabel(moodValue)}`}
+      />
+      );
+  }
+
+  return (
+      <div
+      key={date}
+      className={className}
+      style={{ ...squareStyle, cursor: "default" }}
+      title={isToday ? "Today: No entry yet" : `No entry for ${date}`}
+      />
+  );
+})}
                 </div>
               </div>
             ))}
           </div>
+
           <div style={{ display: "flex", justifyContent: "center", width: "100%" }}>
             <SignOutButton />
           </div>
